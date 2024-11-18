@@ -2,6 +2,9 @@ package ru.yandex.practicum.catsgram;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -16,6 +19,7 @@ public class CatsgramApplication {
         final Scanner scanner = new Scanner(System.in);
         System.out.print("Введите JSON => ");
         final String input = scanner.nextLine();
+
         try {
             gson.fromJson(input, Map.class);
             System.out.println("Был введён корректный JSON");

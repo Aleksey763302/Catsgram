@@ -1,9 +1,5 @@
 package ru.yandex.practicum.catsgram.service;
 
-import ch.qos.logback.classic.Level;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
 import ru.yandex.practicum.catsgram.exception.DuplicatedDataException;
@@ -24,10 +20,11 @@ public class UserService {
         return users.values();
     }
 
-    public Optional<User> findUserById(Long id){
+    public User findUserById(Long id){
         return users.values().stream()
                 .filter(userId -> userId.getId().equals(id))
-                .findFirst();
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException(String.format("пользователь с id %d не найден",id)));
     }
 
     public User createUser(User user) {
