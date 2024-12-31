@@ -1,42 +1,49 @@
 package ru.yandex.practicum.catsgram.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.catsgram.dal.dto.UserDto;
+import ru.yandex.practicum.catsgram.dal.UserRepository;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
-import ru.yandex.practicum.catsgram.exception.DuplicatedDataException;
 import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.maper.UserMapper;
 import ru.yandex.practicum.catsgram.model.User;
 
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class UserService {
-    private final Map<String, User> users = new HashMap<>();
+    public UserRepository userRepository;
 
-    public Collection<User> getUsers() {
-        return users.values();
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
-    public User findUserById(Long id){
-        return users.values().stream()
-                .filter(userId -> userId.getId().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new NotFoundException(String.format("пользователь с id %d не найден",id)));
+    public List<UserDto> getUsers() {
+        log.debug("getUsers");
+        return userRepository.findAll()
+                .stream()
+                .map(UserMapper::mapToUserDto)
+                .collect(Collectors.toList());
+    }
+
+    public User findUserById(Long id) {
+        log.debug("findUserById");
+        Optional<User> user = userRepository.findById(id);
+        return user.orElse(null);
     }
 
     public User createUser(User user) {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             throw new ConditionsNotMetException("Email должен быть указан");
         }
-        if (users.containsKey(user.getEmail())) {
-            throw new DuplicatedDataException("Этот Email уже используется");
-        }
-        user.setId(getNextId());
+        log.debug("создан пользователь");
         user.setRegistrationDate(Instant.now());
-        users.put(user.getEmail(), user);
+        log.debug("обращение к UserRepository {}",user);
+        userRepository.addUser(user);
         return user;
     }
 
@@ -44,40 +51,9 @@ public class UserService {
         if (user.getId() == null) {
             throw new ConditionsNotMetException("ID должен быть указан");
         }
-        Optional<User> optionalOldUser = users.values().stream()
-                .filter(user1 -> user1.getId().equals(user.getId()))
-                .findFirst();
-        User oldUser;
-        String email;
-        if (optionalOldUser.isPresent()) {
-            oldUser = optionalOldUser.get();
-            email = oldUser.getEmail();
-        } else {
-            throw new NotFoundException("пользователь с указанным ID не найден");
-        }
-        if (user.getEmail() != null && users.containsKey(user.getEmail())) {
-            throw new DuplicatedDataException("Этот Email уже используется");
-        }
-        if (user.getEmail() != null) {
-            oldUser.setEmail(user.getEmail());
-        }
-        if(user.getUsername() != null){
-            oldUser.setUsername(user.getUsername());
-        }
-        if(user.getPassword() != null){
-            oldUser.setPassword(user.getPassword());
-        }
-        users.remove(email);
-        users.put(oldUser.getEmail(), oldUser);
-        return oldUser;
+        userRepository.updateUser(user);
+        log.debug("обновление успешно");
+        return user;
     }
 
-    private long getNextId() {
-        long currentMaxId = users.values()
-                .stream()
-                .mapToLong(User::getId)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
-    }
 }

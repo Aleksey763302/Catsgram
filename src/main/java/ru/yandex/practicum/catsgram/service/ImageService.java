@@ -1,11 +1,7 @@
 package ru.yandex.practicum.catsgram.service;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,73 +30,76 @@ public class ImageService {
     @Value(value = "${app.imageDirectory}")
     private String imageDirectory;
 
-    public ImageData getImageData(long imageId){
-        if(!images.containsKey(imageId)){
-            throw new NotFoundException(String.format("изображение с id %d не найдено",imageId));
+    public ImageData getImageData(long imageId) {
+        if (!images.containsKey(imageId)) {
+            throw new NotFoundException(String.format("изображение с id %d не найдено", imageId));
         }
         Image image = images.get(imageId);
         byte[] data = loadFile(image);
-        return new ImageData(data,image.getOriginalFileName());
+        return new ImageData(data, image.getOriginalFileName());
     }
-    private byte[] loadFile(Image image){
+
+    private byte[] loadFile(Image image) {
         Path path = Paths.get(image.getFilePath());
-        if(Files.exists(path)){
+        if (Files.exists(path)) {
             try {
                 return Files.readAllBytes(path);
-            }catch (IOException e){
+            } catch (IOException e) {
                 throw new ImageFileException(String.format("Ошибка чтения файла.  Id: %d, name: %s",
                         image.getId(), image.getOriginalFileName()));
             }
-        }else{
+        } else {
             throw new ImageFileException(String.format("Файл не найден. Id: %d, name: %s",
                     image.getId(), image.getOriginalFileName()));
         }
     }
-    public List<Image> getPostImage(final long PostId){
+
+    public List<Image> getPostImage(final long postId) {
         return images.values().stream()
-                .filter(image -> image.getPostId() == PostId)
+                .filter(image -> image.getPostId() == postId)
                 .toList();
     }
 
-    public Path saveFile (MultipartFile file, Post post){
-        try{
+    public Path saveFile(MultipartFile file, Post post) {
+        try {
             String uniqueFileName = String.format("%d.%s", Instant.now().toEpochMilli(),
                     StringUtils.getFilenameExtension(file.getOriginalFilename()));
-            Path uploadPath = Paths.get(imageDirectory,String.valueOf(post.getAuthorId()), post.getId().toString());
+            Path uploadPath = Paths.get(imageDirectory, String.valueOf(post.getAuthorId()), post.getId().toString());
             Path filePath = uploadPath.resolve(uniqueFileName);
-            if(!Files.exists(uploadPath)){
+            if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
             file.transferTo(uploadPath);
             return filePath;
-        }catch (IOException e){
+        } catch (IOException e) {
             throw new RuntimeException();
         }
     }
 
-    public  List<Image> saveImages(long postId,List<MultipartFile> files){
+    public List<Image> saveImages(long postId, List<MultipartFile> files) {
         return files.stream()
                 .map(file -> saveImage(postId, file))
                 .toList();
     }
 
-    private Image saveImage(long postId, MultipartFile file){
+    private Image saveImage(long postId, MultipartFile file) {
         Optional<Post> postOptional = postService.getPostById(postId);
         Post post;
-        if (postOptional.isEmpty()){
-            throw new NotFoundException(String.format("Пост с ID: %d не обнаружен",postId));
+        if (postOptional.isEmpty()) {
+            throw new NotFoundException(String.format("Пост с ID: %d не обнаружен", postId));
         }
         post = postOptional.get();
-        Path filePath = saveFile(file,post);
+        Path filePath = saveFile(file, post);
         long imageId = getNextId();
         Image image = new Image();
         image.setId(imageId);
         image.setFilePath(filePath.toString());
         image.setPostId(postId);
         image.setOriginalFileName(file.getOriginalFilename());
-        images.put(imageId,image);
+        images.put(imageId, image);
         return image;
     }
+
     private long getNextId() {
         long currentMaxId = images.keySet()
                 .stream()

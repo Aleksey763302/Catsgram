@@ -1,0 +1,9 @@
+app.imageDirectory: C:\\Users\\panch\\Documents\\Images
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/catsgram
+    username: dbuser
+    password: 12345
+    driver-class-name: org.postgresql.Driver
+logging.level:
+  ru.yandex.practicum.catsgram: DEBUG
