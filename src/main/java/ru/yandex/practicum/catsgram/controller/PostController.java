@@ -1,5 +1,6 @@
 package ru.yandex.practicum.catsgram.controller;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.catsgram.exception.ParameterNotValidException;
@@ -8,16 +9,14 @@ import ru.yandex.practicum.catsgram.service.PostService;
 import ru.yandex.practicum.catsgram.service.SortOrder;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/posts")
+@RequiredArgsConstructor
 public class PostController {
     private final PostService postService;
-
-    public PostController(PostService postService) {
-        this.postService = postService;
-    }
 
     @GetMapping("/{id}")
     public Optional<Post> getPostById(@PathVariable final Long id) {
@@ -25,9 +24,9 @@ public class PostController {
     }
 
     @GetMapping("/")
-    public Collection<Post> findAll(@RequestParam(defaultValue = "asc") String sort,
-                                    @RequestParam(defaultValue = "0") String from,
-                                    @RequestParam(defaultValue = "10") String size) {
+    public List<Post> findAll(@RequestParam(defaultValue = "asc") String sort,
+                              @RequestParam(defaultValue = "0") String from,
+                              @RequestParam(defaultValue = "10") String size) {
         if (SortOrder.from(sort) == null) {
             throw new ParameterNotValidException(sort, "некорректный параметр sort");
         }
@@ -54,13 +53,13 @@ public class PostController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Post create(@RequestBody Post post) {
+    public Optional<Post> create(@RequestBody Post post) {
         return postService.create(post);
     }
 
     @PutMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Post update(@RequestBody Post newPost) {
+    public Optional<Post> update(@RequestBody Post newPost) {
         return postService.update(newPost);
     }
 }

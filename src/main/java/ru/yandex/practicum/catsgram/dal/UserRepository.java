@@ -1,12 +1,12 @@
 package ru.yandex.practicum.catsgram.dal;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Repository;
-import ru.yandex.practicum.catsgram.dal.mappers.UserRowMapper;
-import ru.yandex.practicum.catsgram.exception.EmptyResultDataAccessException;
 import ru.yandex.practicum.catsgram.model.User;
 
 import java.time.LocalDate;
@@ -16,40 +16,53 @@ import java.util.Optional;
 
 @Slf4j
 @Repository
-public class UserRepository extends BaseRepository<User>{
+public class UserRepository extends BaseRepository<User> {
     private static final String FIND_ALL_QUERY = "SELECT * FROM users";
-    private static final String FIND_BY_EMAIL_QUERY = "SELECT * FROM users WHERE email = ?";
-    private static final String FIND_BY_ID_QUERY = "SELECT * FROM users WHERE id = ?";
+    private static final String FIND_BY_EMAIL_QUERY = "SELECT * FROM users WHERE email = :email";
+    private static final String FIND_BY_ID_QUERY = "SELECT * FROM users WHERE id = :userID";
+    private static final String CREATE_USER = "INSERT INTO users(username,email,password,registration_date)" +
+            " VALUES(:username,:email,:password,:registrationDate)";
+    private static final String UPDATE_USER = "UPDATE users " +
+            "SET username = :username, email = :email, password = :password WHERE id = :userID";
 
-    public UserRepository(JdbcTemplate jdbc, RowMapper<User> mapper) {
+    public UserRepository(NamedParameterJdbcTemplate jdbc, RowMapper<User> mapper) {
         super(jdbc, mapper);
     }
 
     public List<User> findAll() {
-        log.debug("UserRepository(findAll)");
-        return findMany(FIND_ALL_QUERY);
+        SqlParameterSource params = new MapSqlParameterSource();
+        return findMany(FIND_ALL_QUERY, params);
     }
 
-    public void addUser(User user) {
-        log.debug("добавления данных в таблицу {}",user.toString());
-        jdbc.update("INSERT INTO users(username,email,password,registration_date) VALUES(?,?,?,?);",
-                user.getUsername(),
-                user.getEmail(),
-                user.getPassword(),
-                LocalDate.ofInstant(user.getRegistrationDate(), ZoneId.systemDefault()));
+    public Optional<User> addUser(User user) {
+        SqlParameterSource params = new MapSqlParameterSource()
+                .addValue("username", user.getUsername())
+                .addValue("email", user.getEmail())
+                .addValue("password", user.getPassword())
+                .addValue("registrationDate",
+                        LocalDate.ofInstant(user.getRegistrationDate(), ZoneId.systemDefault()));
+        return findById(insert(CREATE_USER, params));
     }
+
     public Optional<User> findByEmail(String email) {
-        return findOne(FIND_BY_EMAIL_QUERY, email);
+        SqlParameterSource params = new MapSqlParameterSource().addValue("email", email);
+        return findOne(FIND_BY_EMAIL_QUERY, params);
     }
+
     public Optional<User> findById(long userId) {
-        return findOne(FIND_BY_ID_QUERY, userId);
+        SqlParameterSource params = new MapSqlParameterSource().addValue("userID", userId);
+        return findOne(FIND_BY_ID_QUERY, params);
     }
-    public void updateUser(User user){
-        log.debug("обновление данных в таблице");
-        jdbc.update("UPDATE users " +
-                "SET username = '" + user.getUsername() +
-                "', email = '" + user.getEmail() +
-                "', password = '" + user.getPassword() +
-                "' WHERE id = " + user.getId() + ";");
+
+    public Optional<User> updateUser(User user) throws DataAccessException {
+        SqlParameterSource params = new MapSqlParameterSource()
+                .addValue("userID",user.getId())
+                .addValue("username", user.getUsername())
+                .addValue("email", user.getEmail())
+                .addValue("password", user.getPassword());
+        if(update(UPDATE_USER,params)){
+            return findById(user.getId());
+        }
+        return Optional.empty();
     }
 }

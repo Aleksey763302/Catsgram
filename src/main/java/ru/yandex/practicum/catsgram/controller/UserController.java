@@ -8,6 +8,8 @@ import ru.yandex.practicum.catsgram.model.User;
 import ru.yandex.practicum.catsgram.service.UserService;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @RestController
@@ -20,24 +22,24 @@ public class UserController {
     }
 
     @GetMapping("/{userId}")
-    public User findUserById(@PathVariable final Long userId) {
+    public Optional<UserDto> findUserById(@PathVariable final Long userId) {
         return userService.findUserById(userId);
     }
 
     @GetMapping("/")
-    public Collection<UserDto> getUsers() {
+    public List<UserDto> getUsers() {
         return userService.getUsers();
     }
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public User createUser(@RequestBody User user) {
+    public Optional<UserDto> createUser(@RequestBody User user) {
         return userService.createUser(user);
     }
 
     @ResponseStatus(HttpStatus.CREATED)
     @PutMapping
-    public User updateUser(@RequestBody User user) {
+    public Optional<UserDto> updateUser(@RequestBody User user) {
         return userService.updateUser(user);
     }
 }

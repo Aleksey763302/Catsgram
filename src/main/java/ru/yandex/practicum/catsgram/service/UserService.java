@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import ru.yandex.practicum.catsgram.dal.dto.UserDto;
 import ru.yandex.practicum.catsgram.dal.UserRepository;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
-import ru.yandex.practicum.catsgram.exception.NotFoundException;
+import ru.yandex.practicum.catsgram.exception.EmptyResultDataAccessException;
 import ru.yandex.practicum.catsgram.maper.UserMapper;
 import ru.yandex.practicum.catsgram.model.User;
 
@@ -23,37 +23,43 @@ public class UserService {
     }
 
     public List<UserDto> getUsers() {
-        log.debug("getUsers");
         return userRepository.findAll()
                 .stream()
                 .map(UserMapper::mapToUserDto)
                 .collect(Collectors.toList());
     }
 
-    public User findUserById(Long id) {
-        log.debug("findUserById");
+    public Optional<UserDto> findUserById(Long id) {
         Optional<User> user = userRepository.findById(id);
-        return user.orElse(null);
+        return user.map(UserMapper::mapToUserDto);
     }
 
-    public User createUser(User user) {
-        if (user.getEmail() == null || user.getEmail().isBlank()) {
+    public Optional<UserDto> createUser(User user) {
+        if (Objects.isNull(user.getEmail()) || user.getEmail().isBlank()) {
             throw new ConditionsNotMetException("Email должен быть указан");
         }
-        log.debug("создан пользователь");
         user.setRegistrationDate(Instant.now());
-        log.debug("обращение к UserRepository {}",user);
-        userRepository.addUser(user);
-        return user;
+        Optional<User> userOptional = userRepository.addUser(user);
+        if (userOptional.isEmpty()) {
+            throw new EmptyResultDataAccessException("данные не были добавлены");
+        }
+        return Optional.of(UserMapper.mapToUserDto(userOptional.get()));
     }
 
-    public User updateUser(User user) {
-        if (user.getId() == null) {
+    public Optional<UserDto> updateUser(User user) {
+        if (Objects.isNull(user.getId())) {
             throw new ConditionsNotMetException("ID должен быть указан");
         }
-        userRepository.updateUser(user);
-        log.debug("обновление успешно");
-        return user;
+        Optional<User> userOptional;
+        try {
+            userOptional = userRepository.updateUser(user);
+        } catch (RuntimeException e) {
+            log.debug("ошибка при обновлении {}", e.getLocalizedMessage());
+            throw new RuntimeException(e);
+        }
+        if (userOptional.isEmpty()) {
+            throw new EmptyResultDataAccessException("данные не были обновлены");
+        }
+        return Optional.of(UserMapper.mapToUserDto(userOptional.get()));
     }
-
 }

@@ -1,6 +1,7 @@
 package ru.yandex.practicum.catsgram.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageService {
@@ -62,6 +64,7 @@ public class ImageService {
 
     public Path saveFile(MultipartFile file, Post post) {
         try {
+
             String uniqueFileName = String.format("%d.%s", Instant.now().toEpochMilli(),
                     StringUtils.getFilenameExtension(file.getOriginalFilename()));
             Path uploadPath = Paths.get(imageDirectory, String.valueOf(post.getAuthorId()), post.getId().toString());
@@ -69,9 +72,10 @@ public class ImageService {
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
-            file.transferTo(uploadPath);
+            file.transferTo(uploadPath);//not working
             return filePath;
         } catch (IOException e) {
+            e.printStackTrace();
             throw new RuntimeException();
         }
     }

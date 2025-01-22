@@ -1,10 +1,13 @@
 package ru.yandex.practicum.catsgram.service;
 
 import ch.qos.logback.classic.Level;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import ru.yandex.practicum.catsgram.dal.PostRepository;
 import ru.yandex.practicum.catsgram.exception.ConditionsNotMetException;
 import ru.yandex.practicum.catsgram.exception.NotFoundException;
 import ru.yandex.practicum.catsgram.model.Post;
@@ -12,67 +15,56 @@ import ru.yandex.practicum.catsgram.model.Post;
 import java.time.Instant;
 import java.util.*;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class PostService {
     private final UserService userService;
-    private final Map<Long, Post> posts = new HashMap<>();
-    private static final Logger log = LoggerFactory.getLogger(PostService.class);
-
-    @Autowired
-    public PostService(UserService userService) {
-        this.userService = userService;
-    }
+    private final PostRepository repository;
 
     public Optional<Post> getPostById(final Long id) {
-        if (posts.containsKey(id)) {
-            return Optional.of(posts.get(id));
-        } else {
-            return Optional.empty();
-        }
+        return repository.getPostById(id);
     }
 
-    public Collection<Post> findAll(final String sortOrder, final String page, final String size) {
-        ((ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME))
-                .setLevel(Level.DEBUG);
+    public List<Post> findAll(final String sortOrder, final String page, final String size) {
         int startPage = Integer.parseInt(page);
         int countPosts = Integer.parseInt(size);
-        log.debug("параметры: sortOrder {} page {} size {}", sortOrder, page, size);
         Comparator<Post> comparator = getComparator(sortOrder);
         TreeSet<Post> sortedPosts = new TreeSet<>(comparator);
-        sortedPosts.addAll(posts.values());
+        sortedPosts.addAll(repository.getListPosts());
         List<Post> postsList = new ArrayList<>(sortedPosts);
         sortedPosts.clear();
         return postsList.stream().skip(startPage).limit(countPosts).toList();
     }
 
-    public Post create(Post post) {
-        if (userService.findUserById(post.getAuthorId()) == null) {
+    public Optional<Post> create(Post post) {
+        if (userService.findUserById(post.getAuthorId()).isEmpty()) {
             log.debug("«Автор с id = {} не найден» ", post.getAuthorId());
             throw new ConditionsNotMetException(String.format("«Автор с id = %d не найден»", post.getAuthorId()));
         }
-        if (post.getDescription() == null || post.getDescription().isBlank()) {
+        if (Objects.isNull(post.getDescription()) || post.getDescription().isBlank()) {
             throw new ConditionsNotMetException("Описание не может быть пустым");
         }
 
-        post.setId(getNextId());
         post.setPostDate(Instant.now());
-        posts.put(post.getId(), post);
-        return post;
+        return repository.createPost(post);
     }
 
-    public Post update(Post newPost) {
-        if (newPost.getId() == null) {
+    public Optional<Post> update(Post newPost) {
+        if (Objects.isNull(newPost.getId())) {
             throw new ConditionsNotMetException("Id должен быть указан");
         }
-        if (posts.containsKey(newPost.getId())) {
-            Post oldPost = posts.get(newPost.getId());
-            if (newPost.getDescription() == null || newPost.getDescription().isBlank()) {
+        if (repository.getPostById(newPost.getId()).isPresent()) {
+
+            if (Objects.isNull(newPost.getDescription()) || newPost.getDescription().isBlank()) {
                 throw new ConditionsNotMetException("Описание не может быть пустым");
             }
-            oldPost.setDescription(newPost.getDescription());
-            return oldPost;
+            return repository.updatePost(newPost);
+
+        }else {
+            throw new NotFoundException("Пост с id = " + newPost.getId() + " не найден");
         }
-        throw new NotFoundException("Пост с id = " + newPost.getId() + " не найден");
+
     }
 
     private Comparator<Post> getComparator(String sortOrder) {
@@ -100,14 +92,5 @@ public class PostService {
                 }
             };
         };
-    }
-
-    private long getNextId() {
-        long currentMaxId = posts.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
     }
 }
