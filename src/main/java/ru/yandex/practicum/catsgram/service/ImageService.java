@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import ru.yandex.practicum.catsgram.dal.ImageRepository;
 import ru.yandex.practicum.catsgram.exception.ImageFileException;
 import ru.yandex.practicum.catsgram.exception.NotFoundException;
 import ru.yandex.practicum.catsgram.model.Image;
@@ -27,16 +28,17 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ImageService {
     private final PostService postService;
-    private final Map<Long, Image> images = new HashMap<>();
+    private final ImageRepository repository;
 
     @Value(value = "${app.imageDirectory}")
     private String imageDirectory;
 
     public ImageData getImageData(long imageId) {
-        if (!images.containsKey(imageId)) {
+        Optional<Image> imageOptional = repository.getImage(imageId);
+        if (imageOptional.isEmpty()) {
             throw new NotFoundException(String.format("изображение с id %d не найдено", imageId));
         }
-        Image image = images.get(imageId);
+        Image image = imageOptional.get();
         byte[] data = loadFile(image);
         return new ImageData(data, image.getOriginalFileName());
     }
@@ -57,14 +59,11 @@ public class ImageService {
     }
 
     public List<Image> getPostImage(final long postId) {
-        return images.values().stream()
-                .filter(image -> image.getPostId() == postId)
-                .toList();
+        return repository.getImagesPost(postId);
     }
 
     public Path saveFile(MultipartFile file, Post post) {
         try {
-
             String uniqueFileName = String.format("%d.%s", Instant.now().toEpochMilli(),
                     StringUtils.getFilenameExtension(file.getOriginalFilename()));
             Path uploadPath = Paths.get(imageDirectory, String.valueOf(post.getAuthorId()), post.getId().toString());
@@ -72,10 +71,9 @@ public class ImageService {
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
-            file.transferTo(uploadPath);//not working
+            file.transferTo(filePath);
             return filePath;
         } catch (IOException e) {
-            e.printStackTrace();
             throw new RuntimeException();
         }
     }
@@ -94,22 +92,12 @@ public class ImageService {
         }
         post = postOptional.get();
         Path filePath = saveFile(file, post);
-        long imageId = getNextId();
         Image image = new Image();
-        image.setId(imageId);
         image.setFilePath(filePath.toString());
         image.setPostId(postId);
         image.setOriginalFileName(file.getOriginalFilename());
-        images.put(imageId, image);
+        long imageId = repository.addImage(image);
+        image.setId(imageId);
         return image;
-    }
-
-    private long getNextId() {
-        long currentMaxId = images.keySet()
-                .stream()
-                .mapToLong(id -> id)
-                .max()
-                .orElse(0);
-        return ++currentMaxId;
     }
 }

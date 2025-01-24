@@ -1,9 +1,9 @@
-app.imageDirectory: D:\Storage\Images\
+app.imageDirectory: /home/alex/images
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/catsgram
-    username: postgres
-    password: Password
+    url: jdbc:postgresql://localhost:5432/userdb
+    username: dbuser
+    password: password
     driver-class-name: org.postgresql.Driver
 logging.level:
   ru.yandex.practicum.catsgram: DEBUG
